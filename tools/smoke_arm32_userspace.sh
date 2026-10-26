@@ -12,6 +12,15 @@ for f in "$BUSYBOX" "$KEXEC"; do
 done
 echo "[smoke] BusyBox ARM32 launches under userspace emulation"
 qemu-arm-static "$BUSYBOX" --help >/dev/null
+echo "[smoke] Verify applets needed by initramfs actually exist"
+available="$(qemu-arm-static "$BUSYBOX" --list)"
+for app in sh mount umount mkdir uname cat sleep echo ls dmesg sync readlink head tail reboot; do
+  if ! printf '%s\n' "$available" | grep -Fxq "$app"; then
+    echo "ERROR: BusyBox ARM32 missing required applet: $app" >&2
+    exit 1
+  fi
+done
+qemu-arm-static "$BUSYBOX" readlink -f . >/dev/null
 out="$(qemu-arm-static "$BUSYBOX" sh -c 'printf MAIZON_ARM32_OK')"
 test "$out" = MAIZON_ARM32_OK || { echo "Unexpected BusyBox output: $out" >&2; exit 1; }
 echo "[smoke] kexec-tools can print usage under QEMU user mode"

@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 import struct
 import sys
+from analyze_fdt import analyze_fdt
 
 PAGE = 4096
 ZIMAGE_MAGIC = 0x016F2818
@@ -72,6 +73,16 @@ def prepare(boot: Path, fdt: Path, output: Path):
         kernel_format, kernel_file = classify_arm32_kernel(kernel)
     raw_fdt = fdt.read_bytes()
     summary_fdt = parse_fdt_header(raw_fdt)
+    # OEM FDTs can have vendor-specific structures. Keep private extraction
+    # possible, but mark an incomplete/invalid memory audit as explicit NO-GO.
+    try:
+        fdt_audit = analyze_fdt(raw_fdt)
+    except ValueError as exc:
+        fdt_audit = {
+            "fdt_structurally_valid": False,
+            "boot_approved": False,
+            "warnings": [f"FDT structural audit incomplete: {exc}"],
+        }
     # Avoid accidentally committing proprietary boot/kernel and raw FDT.
     if any((ancestor / ".git").exists() for ancestor in (output, *output.parents)):
         raise ValueError("Destino dentro de checkout Git: use pasta PRIVADA fora do repositorio")
@@ -86,6 +97,7 @@ def prepare(boot: Path, fdt: Path, output: Path):
             "to kexec-tools. No compatible load/handoff method has been proven."
         ),
         "fdt": summary_fdt,
+        "fdt_audit": fdt_audit,
         "sha256": {
             kernel_file: hashlib.sha256(kernel).hexdigest(),
             "stock-original.fdt": hashlib.sha256(raw_fdt).hexdigest(),

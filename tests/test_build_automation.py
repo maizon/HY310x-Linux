@@ -22,6 +22,17 @@ class BuildAutomationTests(unittest.TestCase):
         self.assertIn("UAPI CBQ", build)
         self.assertIn("CONFIG_STATIC=y", build)
 
+    def test_smoke_checks_all_required_applets(self):
+        smoke = (ROOT / "tools/smoke_arm32_userspace.sh").read_text()
+        self.assertIn('qemu-arm-static "$BUSYBOX" --list', smoke)
+        self.assertIn('grep -Fxq "$app"', smoke)
+
+    def test_expensive_build_not_triggered_by_python_only_tests(self):
+        flow = (ROOT / ".github/workflows/build.yml").read_text()
+        self.assertNotIn("'tests/**'", flow)
+        self.assertNotIn("'tools/**'", flow)
+        self.assertIn("'tools/smoke_arm32_userspace.sh'", flow)
+
     def test_smoke_does_not_attempt_kernel_boot(self):
         smoke = (ROOT / "tools/smoke_arm32_userspace.sh").read_text(encoding="utf-8")
         self.assertIn("qemu-arm-static", smoke)

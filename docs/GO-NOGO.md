@@ -9,7 +9,7 @@ O objetivo do laboratório é gerar binários verificáveis sem alterar a eMMC. 
 | Fase | Critério | Estado |
 |---|---|---|
 | A. Inventário | Processador, kernel, kexec e memória reservada lidos | OK (proprietário) |
-| B. Build | Kernel ARM32, BusyBox initramfs, utilitário ARMv7 estático | Pendente de CI verde |
+| B. Build | Kernel ARM32, BusyBox initramfs, utilitário ARMv7 estático | **OK em CI em 26/10/2026** (run 40342951533); NÃO valida boot |
 | C. Auditoria DTB | DTB específico do HY310X com pinos, fan, clocks e reservas revisados | **Não** |
 | D. Observabilidade sem UART | Logger USB FAT32/exFAT de /init (não registra falhas anteriores) e retorno testável | **Parcial: código não validado em hardware** |
 | E. Recuperação | Mecanismo prático provado de recuperação quando Android não responde | **Não** |
@@ -57,3 +57,17 @@ A meta de '90%' e de **confiabilidade dos processos de build/verificacao**, nao 
 ## Bloqueio encontrado no boot OEM (observação do backup privado da unidade)
 
 O `boot_a.img` original da unidade tem header Android v3 e payload kernel ARM32 cujo inicio se parece com **Image bruto**, nao com `zImage` (nao existe magic de zImage em offset 0x24). O inspecionador agora marca formato `raw-Image-CANDIDATE` e armazena a extracao somente no diretório privado local. Esta observacao **impede** mandar a imagem ao `kexec --type=zImage` sem adaptacao e verificacao real. Nao tentar alterar kernel em eMMC para contornar esse problema. Nao houve boot ou Kexec fisico. FDT original do boot em runtime ainda precisa ser confirmado para `/memory` e reservas.
+
+## Auditoria privada do FDT (26/10/2026)
+
+O comando offline `python3 tools/analyze_fdt.py /CAMINHO/PRIVADO/stock.fdt`
+analisa os blocos FDT, o node de memoria, os intervalos `memreserve` e
+`reserved-memory` e alerta sobre inconsistencias de tamanho, estrutura,
+sobreposicao e reservas dinamicas sem enderecos. Nao imprime bootargs,
+seriais, enderecos MAC nem conteudo arbitrario do DTB. A ferramenta de
+inspecao do boot agrega essa analise no relatorio local. **Sempre retorna
+boot_approved=false**; o hardware real, GPIOs, termica e a recuperacao
+permanecem sem validacao.
+
+O run 40342951533 concluiu a compilacao ARM32, verificacao de artefatos e
+smoke test QEMU userspace com sucesso. Nenhum handoff Kexec foi realizado.

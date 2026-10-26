@@ -7,9 +7,11 @@ on:
       - '.github/workflows/build.yml'
       - 'scripts/**'
       - 'initramfs/**'
-      - 'tools/**'
-      - 'config/**'
-      - 'tests/**'
+      # Only changes affecting the binary package should trigger the
+      # expensive ~30-minute cross-build. Python tests run in fast CI.
+      - 'tools/validate_kit.py'
+      - 'tools/smoke_arm32_userspace.sh'
+      - 'tools/read_only_preflight.sh'
   workflow_dispatch:
 
 # If a fix is pushed, the obsolete compilation must not waste runner resources.

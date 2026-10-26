@@ -47,6 +47,19 @@ Os arquivos originais sao PRIVADOS. Nao enviar `boot-active.img`, FDT ou kernel 
 
 **Descoberta concreta do backup da unidade:** o payload de `boot_a.img` e um **candidato ARM32 Image bruto**, com inicio B/BL e sem magic ARM32 zImage em 0x24. Portanto **NÃO** podemos iniciar auto-Kexec com `--type=zImage` apontando para esse arquivo; precisamos investigar suporte a raw Image e memoria/entry do carregador, ou uma forma compativel de encapsulamento, sem mexer em boot_a ou U-Boot. A deteccao atual e heuristica e nao comprova executabilidade via Kexec.
 
+## FDT OEM: auditoria local sem dados privados
+
+A ferramenta `tools/analyze_fdt.py` verifica a estrutura do FDT original,
+os nos de memoria, os intervalos `/memreserve` e `/reserved-memory`, inclusive
+inconsistencias detectaveis estaticamente. `tools/inspect_android_boot.py`
+agora incorpora a auditoria ao `LOCAL-REPORT.json`, mas **boot_approved**
+permanece sempre `false`. A auditoria nao comprova pinagem, energia,
+PSCI, estado do hardware ou retorno ao Android. Nenhum FDT OEM e enviado ao CI.
+
+O workflow de compilacao do kernel, BusyBox e kexec-tools passou em
+26/10/2026 no run 40342951533. Isso prova somente build, validacao de
+formato, hashes e QEMU ARM32 em userspace; nao prova Kexec real.
+
 ## Conteúdo do projeto
 
 - `docs/HARDWARE.md`: matriz HY310X × HY310, proveniência e bloqueios reais.
@@ -57,7 +70,7 @@ Os arquivos originais sao PRIVADOS. Nao enviar `boot-active.img`, FDT ou kernel 
 - `scripts/build_kit.sh`: tentativa reproduzível de compilação cruzada via ferramentas abertas; não realiza boot.
 - `.github/workflows/ci.yml`: testes estáticos sem hardware.
 - `.github/workflows/build.yml`: compila, verifica hashes/formatos, executa BusyBox e `kexec --help` sob QEMU **user-mode**, publica kit experimental se todos passarem e publica diagnóstico em caso de falha. Erros de rede na instalação de dependências recebem tentativas automáticas; erros de código continuam exigindo correção e novo commit.
-- `.github/workflows/build.yml`: compilação experimental sob acionamento manual.
+- `tools/analyze_fdt.py`: auditoria local da estrutura do FDT OEM e memoria reservada, sem publicar o arquivo.
 
 O alvo inicial é **ARM32**, não ARM64. O port [cstenger/allwinner-h713-linux](https://github.com/cstenger/allwinner-h713-linux) demonstrou Linux ARM32 via U-Boot original no **HY310**, **não via Kexec** no HY310X. O port [well0nez/allwinner-h713-linux](https://github.com/well0nez/allwinner-h713-linux) usa outra cadeia de boot para ARM64; não transplante seu flash/DTB para este aparelho.
 
