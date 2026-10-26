@@ -1,0 +1,29 @@
+name: Build experimental ARM32 (NO-GO)
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-arm32:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Dependencias de cross-compilacao
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential gcc-arm-linux-gnueabi binutils-arm-linux-gnueabi \
+            bc bison flex libssl-dev libelf-dev cpio xz-utils bzip2 file curl git python3
+      - name: Compilar kernel e BusyBox e kexec-tools
+        run: bash scripts/build_kit.sh
+      - name: Conferir formatos (nao e validacao de boot)
+        run: python3 tools/validate_kit.py .build/out
+      - name: Publicar kit experimental sem dados OEM
+        uses: actions/upload-artifact@v4
+        with:
+          name: HY310X-KEXEC-ARM32-NO-GO
+          path: .build/out/
+          if-no-files-found: error
+          retention-days: 14

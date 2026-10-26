@@ -1,0 +1,10 @@
+SPDX-License-Identifier: GPL-2.0-only
+
+Copyright (C) 2026 Maizon contributors.
+
+The scripts, manifests, and text in this repository are provided under the
+GNU General Public License, version 2 only, except where individual files
+indicate otherwise. Copies of upstream components fetched by scripts remain
+under their respective copyright notices and licenses.
+
+Full license: https://www.gnu.org/licenses/old-licenses/gpl-2.0.txt

@@ -1,0 +1,13 @@
+.build/
+__pycache__/
+*.pyc
+*.img
+*.dtb
+*.cpio.gz
+*.tar*
+*.elf
+*.so
+*.log
+*.bin
+secrets/
+private/

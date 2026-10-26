@@ -1,0 +1,30 @@
+name: CI - verificacao estatica
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Python unittest
+        run: python3 -m unittest discover -s tests -v
+      - name: Syntax shell scripts
+        run: |
+          sh -n tools/read_only_preflight.sh
+          sh -n initramfs/init
+          bash -n scripts/build_kit.sh
+      - name: JSON valid
+        run: python3 -m json.tool config/hardware.json >/dev/null
+      - name: Proibido flash automatico
+        run: |
+          ! grep -RE 'dd +[^#]*of=/dev/(block|mmcblk)|kexec +-e|sunxi_flash +write' scripts tools initramfs

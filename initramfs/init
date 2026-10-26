@@ -1,0 +1,22 @@
+#!/bin/sh
+# Minimal experimental first userspace. Runs ONLY if a separately loaded kernel reaches /init.
+# Do not mount or write eMMC. This script does not trigger kexec, flash or automatic reboot.
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+umask 077
+mkdir -p /dev /proc /sys /run /tmp
+mount -t devtmpfs devtmpfs /dev 2>/dev/null || :
+mount -t proc proc /proc 2>/dev/null || :
+mount -t sysfs sysfs /sys 2>/dev/null || :
+mount -t tmpfs tmpfs /run 2>/dev/null || :
+printf '\n=== MAIZON HY310X ARM32 MINIMAL INITRAMFS ===\n'
+printf 'Kernel: '
+uname -a
+printf 'CPUs online: '
+cat /sys/devices/system/cpu/online 2>/dev/null || :
+printf '\nSem eMMC, sem rede, sem grafico. Shell em /dev/console.\n'
+printf '### MAIZON HY310X: /init alcancado ###\n' > /dev/kmsg 2>/dev/null || :
+if [ -c /dev/console ]; then
+    exec /bin/sh </dev/console >/dev/console 2>&1
+fi
+echo 'ERRO: /dev/console indisponivel; nao ha shell interativo.'
+while :; do sleep 60; done

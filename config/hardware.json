@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "project": "Maizon HY310X Linux Kexec Lab",
+  "boot_allowed": false,
+  "boot_validated": false,
+  "build_target": "armv7-a",
+  "soc": "Allwinner H713",
+  "device_tree_compatible_stock": ["allwinner,tv303", "arm,sun50iw12p1"],
+  "board_model_stock": "sun50iw12",
+  "kernel_stock": "5.4.99 armv7l",
+  "android": 11,
+  "active_slot": "_a",
+  "root": "Magisk",
+  "cpu_count": 4,
+  "psci": "arm,psci-1.0 via smc",
+  "kexec": {
+    "CONFIG_KEXEC": "y",
+    "CONFIG_KEXEC_CORE": "y",
+    "kexec_load_disabled": 0,
+    "kexec_load_tested": false,
+    "kexec_execute_tested": false
+  },
+  "memory": {
+    "mem_total_kib": 960888,
+    "reserved_regions_stock": ["bl31", "cpu_comm", "decd", "framebuf", "mipsloader", "optee"]
+  },
+  "board_divergences_from_cstenger_hy310": {
+    "fan_tachometer_pin_stock": "PH13",
+    "fan_tachometer_pin_reference": "PH17",
+    "fan_power_pin_stock": "PB6 (from audit; circuit mapping not verified)",
+    "fan_power_pin_reference": "PB5",
+    "pwm_ids_stock": [3],
+    "pwm_ids_reference": [0],
+    "ntc_num_stock": 1,
+    "ntc_num_reference": 0,
+    "thermal_warn_c_stock": 64,
+    "thermal_poweroff_c_stock": 70,
+    "display_project_id_hex": "0x30",
+    "display_bin_sha256": "4628cbaf8c93ea12ec59e871e4250facf0773daae722b251c73f1fad81e80c2c"
+  },
+  "missing_evidence": [
+    "raw stock FDT compared path-by-path to proposed HY310X DTS",
+    "wiring/thermal/fan GPIO safe ownership across kexec",
+    "physical serial UART boot log capture",
+    "kexec-tools static ARMv7 executing successfully",
+    "kexec -l acceptance of specific kernel and address map",
+    "handoff via kexec -e",
+    "recovery independently proven without working Android"
+  ],
+  "source": "Owner device audits and maizon/Magcubic-HY310X-and-H713-H723-Root-"
+}
