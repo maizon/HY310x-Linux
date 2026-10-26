@@ -114,8 +114,65 @@ BUSY="$SOURCES/busybox-$BUSYBOX_VERSION"
 make -s -C "$BUSY" ARCH=arm CROSS_COMPILE="$CC_PREFIX" defconfig
 # For Android host compatibility BusyBox must be static (no Android glibc loader).
 sed -i 's/^# CONFIG_STATIC is not set/CONFIG_STATIC=y/' "$BUSY/.config"
-grep -q '^CONFIG_STATIC=y$' "$BUSY/.config" || { echo "CONFIG_STATIC ausente"; exit 1; }
+# BusyBox 1.36.1 tc/CBQ uses symbols removed from newer Linux UAPI headers
+# shipped with Ubuntu 24.04 cross-toolchains (TCA_CBQ_MAX, tc_cbq_lssopt).
+# The diagnostic initramfs does not use traffic shaping. Disable the tc
+# applet rather than injecting obsolete kernel headers or changing toolchains.
+sed -i 's/^CONFIG_TC=y$/# CONFIG_TC is not set/' "$BUSY/.config"
+grep -q '^CONFIG_STATIC=y
+CPIO_ROOT="$WORKDIR/initramfs-root"
+rm -rf "$CPIO_ROOT"
+mkdir -p "$CPIO_ROOT/bin" "$CPIO_ROOT/dev" "$CPIO_ROOT/proc" "$CPIO_ROOT/sys" "$CPIO_ROOT/run" "$CPIO_ROOT/tmp"
+cp "$BUSY/busybox" "$CPIO_ROOT/bin/busybox"
+for app in sh mount umount mkdir uname cat sleep echo ls dmesg sync readlink head tail reboot; do
+    ln -s busybox "$CPIO_ROOT/bin/$app"
+done
+cp "$ROOT/initramfs/init" "$CPIO_ROOT/init"
+chmod 0755 "$CPIO_ROOT/init" "$CPIO_ROOT/bin/busybox"
+(cd "$CPIO_ROOT" && find . -print0 | cpio --quiet --null -o -H newc --owner=0:0) | gzip -9 > "$OUT/initramfs.cpio.gz"
+
+echo "[5/6] kexec-tools estatico ARM32"
+KEXEC_TAR="$SOURCES/kexec-tools-$KEXEC_VERSION.tar.xz"
+fetch "https://www.kernel.org/pub/linux/utils/kernel/kexec/kexec-tools-$KEXEC_VERSION.tar.xz" "$KEXEC_TAR"
+if [ ! -d "$SOURCES/kexec-tools-$KEXEC_VERSION" ]; then
+    tar -xJf "$KEXEC_TAR" -C "$SOURCES"
+fi
+KEXEC="$SOURCES/kexec-tools-$KEXEC_VERSION"
+(
+    cd "$KEXEC"
+    ./configure --host=arm-linux-gnueabi CC="${CC_PREFIX}gcc" LDFLAGS="-static"
+    make -j"$JOBS"
+)
+KEXEC_EXE=""
+for candidate in "$KEXEC/build/sbin/kexec" "$KEXEC/kexec/kexec"; do
+    if [ -f "$candidate" ]; then KEXEC_EXE="$candidate"; break; fi
+done
+[ -n "$KEXEC_EXE" ] || { echo "Nao encontrado binario kexec ARM32"; exit 1; }
+cp "$KEXEC_EXE" "$OUT/kexec"
+chmod 0755 "$OUT/kexec"
+if "${CC_PREFIX}readelf" -l "$OUT/kexec" | grep -q INTERP; then
+    echo "ERRO: kexec tem carregador dinamico, incompatibilidade com Android"
+    exit 1
+fi
+
+echo "[6/6] Manifesto e marcador de bloqueio"
+cat > "$OUT/NO-GO.txt" <<EOF
+MAIZON HY310X ARM32 KEXEC PROTOTIPO
+NÃO EXECUTAR NO PROJETOR.
+SEM DTB VERIFICADO PARA A PLACA.
+SEM TESTE DE KEXEC/HANDOFF E SEM RECUPERAÇÃO INDEPENDENTE.
+O DTS fornecido é baseado no HY310 do cstenger; GPIO fan/NTC/PWM divergem do HY310X.
+Somente compilação e validação estática.
+Kernel Linux $KERNEL_VERSION; cstenger $CSTENGER_COMMIT
+BusyBox $BUSYBOX_VERSION; kexec-tools $KEXEC_VERSION
+EOF
+(cd "$OUT" && sha256sum zImage hy310x-candidate.dtb initramfs.cpio.gz kexec > manifest.sha256)
+python3 "$ROOT/tools/validate_kit.py" "$OUT"
+echo "Resultado: $OUT (NO-GO para boot)"
+ "$BUSY/.config" || { echo "CONFIG_STATIC ausente"; exit 1; }
 make -s -C "$BUSY" ARCH=arm CROSS_COMPILE="$CC_PREFIX" oldconfig
+grep -qx '# CONFIG_TC is not set' "$BUSY/.config" ||
+    { echo "ERRO: applet BusyBox tc deve permanecer desabilitado (UAPI CBQ)"; exit 1; }
 make -C "$BUSY" ARCH=arm CROSS_COMPILE="$CC_PREFIX" -j"$JOBS"
 CPIO_ROOT="$WORKDIR/initramfs-root"
 rm -rf "$CPIO_ROOT"

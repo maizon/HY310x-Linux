@@ -15,6 +15,13 @@ class BuildAutomationTests(unittest.TestCase):
         for danger in ("sudo dd", "kexec -e", "sunxi_flash write", "fw_setenv"):
             self.assertNotIn(danger, flow)
 
+    def test_busybox_does_not_compile_obsolete_tc_cbq(self):
+        build = (ROOT / "scripts/build_kit.sh").read_text(encoding="utf-8")
+        self.assertIn("CONFIG_TC=y", build)
+        self.assertIn("# CONFIG_TC is not set", build)
+        self.assertIn("UAPI CBQ", build)
+        self.assertIn("CONFIG_STATIC=y", build)
+
     def test_smoke_does_not_attempt_kernel_boot(self):
         smoke = (ROOT / "tools/smoke_arm32_userspace.sh").read_text(encoding="utf-8")
         self.assertIn("qemu-arm-static", smoke)
