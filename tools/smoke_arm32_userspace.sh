@@ -12,7 +12,7 @@ for f in "$BUSYBOX" "$KEXEC"; do
 done
 echo "[smoke] BusyBox ARM32 launches under userspace emulation"
 qemu-arm-static "$BUSYBOX" --help >/dev/null
-out="$(qemu-arm-static "$BUSYBOX" sh -c 'printf "MAIZON_ARM32_OK\\n"')"
+out="$(qemu-arm-static "$BUSYBOX" sh -c 'printf MAIZON_ARM32_OK')"
 test "$out" = MAIZON_ARM32_OK || { echo "Unexpected BusyBox output: $out" >&2; exit 1; }
 echo "[smoke] kexec-tools can print usage under QEMU user mode"
 qemu-arm-static "$KEXEC" --help >/dev/null

@@ -45,3 +45,11 @@ QEMU linux-user executa binários ARM32, **não** emula o controlador USB H713, 
 ## Correção de compatibilidade de headers (26/10/2026)
 
 O build anterior do BusyBox 1.36.1 falhou no applet `networking/tc.c` porque a toolchain Linux moderna não define mais estruturas e constantes CBQ antigas (`TCA_CBQ_MAX`, `tc_cbq_lssopt`). O pacote de diagnóstico não precisa do comando `tc`; o build agora desabilita `CONFIG_TC` e verifica essa decisão após `oldconfig`. Isso evita misturar headers de kernel antigos no cross-compiler. A correção é de compilação, não de compatibilidade de boot no H713.
+
+## Prioridade: auto-Kexec OEM (kernel original) antes do Linux mainline
+
+O primeiro ensaio de hardware planejado e o auto-Kexec do **kernel OEM ARM32 5.4.99**, com FDT fornecido ao Android e initramfs minimo. Existem ferramentas de extracao **locais e privadas** no repositorio, mas nenhum handoff habilitado. Nao supor que o DTB stock garanta compatibilidade ao Kexec, nem que o display funcione num segundo boot.
+
+A opcao `tools/capture_stock_android.sh` le somente boot do slot ativo e `/sys/firmware/fdt`, gravando a copia no USB removivel; `tools/inspect_android_boot.py` rejeita formatos inesperados. O suporte ao node `/memory`, memoria reservada, estado PSCI, termica, USB e retorno seguro ao Android precisa de evidencia adicional. Sem UART, log USB so ajuda apos o sistema reconhecer o USB e executar `/init`.
+
+A meta de '90%' e de **confiabilidade dos processos de build/verificacao**, nao probabilidade alegada de boot real. Nao prometer sucesso sem prova fisica, e nao executar Kexec automaticamente.

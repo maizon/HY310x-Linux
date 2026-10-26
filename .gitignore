@@ -11,3 +11,11 @@ __pycache__/
 *.bin
 secrets/
 private/
+
+# Capturas privadas do boot original: NUNCA publicar
+stock-zImage
+stock-original.fdt
+stock.fdt
+LOCAL-REPORT.json
+CHECKSUMS-PRIVATE.txt
+HY310X-PRIVATE*/

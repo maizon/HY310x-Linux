@@ -35,6 +35,16 @@ Android 11 ARM32 original (eMMC; NÃO modificar)
 
 Não há Android nem vídeo depois de um Kexec bem-sucedido: o novo kernel toma controle, e ADB perde conexão. O proprietário **não tem UART**: o initramfs agora inclui **diagnóstico opt-in por pendrive FAT32/exFAT** em `MAIZON/KEXEC.LOG`, **somente se /init e o USB funcionarem**. Não há log para falhas antes de /init. **A existência do logger NÃO autoriza o teste de boot**; veja [docs/USB-DIAGNOSTICO.md](docs/USB-DIAGNOSTICO.md) e [docs/GO-NOGO.md](docs/GO-NOGO.md).
 
+## Proxima prioridade: auto-Kexec do kernel OEM 5.4.99
+
+Em vez de tentar o kernel 6.16 diretamente no hardware, o caminho preferido passa a ser um **auto-Kexec**: preparar uma copia do kernel original 5.4.99 ARM32 e do Device Tree efetivamente usado pelo Android. Isto reduz algumas incertezas, mas **nao valida** PSCI, RAM, dispositivos, recuperacao ou o salto Kexec.
+
+- `tools/capture_stock_android.sh`: leitura opcional do boot da **particao ativa** e `/sys/firmware/fdt` para pendrive privado FAT32/exFAT. **Sem escrita na eMMC**.
+- `tools/inspect_android_boot.py`: inspecao offline de Android boot v3/v4, extracao de payload ARM32 zImage apenas com magic valida, e copia privada do FDT original. **Nao executa Kexec nem monta particoes**.
+- `tests/test_stock_boot.py`: testes com imagens sinteticas, sem dados OEM.
+
+Os arquivos originais sao PRIVADOS. Nao enviar `boot-active.img`, FDT ou kernel original ao GitHub publico. O codigo nao produz pacote autorizado a inicializar. Nossa meta e maximizar confiabilidade verificavel, sem anunciar percentual de sucesso fisico nao medido.
+
 ## Conteúdo do projeto
 
 - `docs/HARDWARE.md`: matriz HY310X × HY310, proveniência e bloqueios reais.

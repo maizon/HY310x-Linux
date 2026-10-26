@@ -21,6 +21,7 @@ jobs:
       - name: Syntax shell scripts
         run: |
           sh -n tools/read_only_preflight.sh
+          sh -n tools/capture_stock_android.sh
           sh -n initramfs/init
           bash -n scripts/build_kit.sh
       - name: JSON valid
