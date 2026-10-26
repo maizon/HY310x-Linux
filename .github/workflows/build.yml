@@ -1,5 +1,11 @@
 name: Build experimental ARM32 (NO-GO)
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/build_kit.sh'
+      - '.github/workflows/build.yml'
+      - 'initramfs/**'
   workflow_dispatch:
 
 permissions:
