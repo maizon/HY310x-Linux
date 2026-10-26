@@ -71,3 +71,12 @@ permanecem sem validacao.
 
 O run 40342951533 concluiu a compilacao ARM32, verificacao de artefatos e
 smoke test QEMU userspace com sucesso. Nenhum handoff Kexec foi realizado.
+
+
+## Correção estrutural no initramfs — dispositivos essenciais antes do /init
+
+O Linux tenta abrir `/dev/console` antes de executar o PID 1. O empacotamento antigo `find | cpio`, executado como usuário comum no GitHub Actions, NÃO criava `/dev/console` (char 5:1) nem `/dev/null` (char 1:3). Isso podia quebrar o diagnóstico antes que `/init` montasse devtmpfs.
+
+`tools/make_initramfs.py` agora gera CPIO newc reproduzível incluindo metadados desses dois dispositivos, sem mknod/root e sem tocar no armazenamento real. `tools/validate_kit.py` verifica a estrutura, o trailer, o /init executável, o BusyBox, o symlink /bin/sh e ambos os major/minor. Testes de regressão em `tests/test_initramfs_nodes.py` incluem corrupção simulada.
+
+**Não equivale a um boot no H713.** O salto Kexec continua bloqueado até demonstrarmos DTB correto, RAM/reservas, drivers, térmica e recuperação.

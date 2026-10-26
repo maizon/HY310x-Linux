@@ -1,10 +1,12 @@
 import gzip
+import os
 import pathlib
 import struct
 import sys
 import tempfile
 import unittest
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "tools"))
+from make_initramfs import make_initramfs
 from validate_kit import (
     validate_zimage, validate_dtb, validate_initramfs,
     validate_kexec_arm32_static, check_dir,
@@ -20,10 +22,20 @@ def make_valid_files(directory):
     elf = bytearray(64)
     elf[:6] = b"\x7fELF\x01\x01"
     struct.pack_into("<H", elf, 18, 40)
+    # Synthetic but structurally valid newc: includes early /dev/console and /dev/null.
+    root = directory / "root"
+    (root / "bin").mkdir(parents=True)
+    (root / "dev").mkdir()
+    (root / "init").write_text("#!/bin/sh\n")
+    (root / "bin" / "busybox").write_bytes(b"MOCK")
+    (root / "bin" / "sh").symlink_to("busybox")
+    os.chmod(root / "init", 0o755)
+    os.chmod(root / "bin" / "busybox", 0o755)
+    make_initramfs(root, directory / "initramfs.cpio.gz")
     blobs = {
         "zImage": bytes(z),
         "hy310x-candidate.dtb": bytes(dtb),
-        "initramfs.cpio.gz": gzip.compress(b"070701" + b"0" * 256),
+        "initramfs.cpio.gz": (directory / "initramfs.cpio.gz").read_bytes(),
         "kexec": bytes(elf),
     }
     import hashlib

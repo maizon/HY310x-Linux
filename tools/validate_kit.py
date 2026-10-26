@@ -31,15 +31,79 @@ def validate_dtb(data):
         fail("DTB: tamanho incoerente")
 
 
+def parse_initramfs_newc(data):
+    """Parse CPIO metadata only. Never extract untrusted paths to disk."""
+    import stat
+    cursor, entries, trailer = 0, {}, False
+    while cursor + 110 <= len(data):
+        if data[cursor:cursor + 6] not in (b"070701", b"070702"):
+            fail("initramfs: CPIO newc invalid header")
+        header = data[cursor + 6:cursor + 110]
+        try:
+            fields = [int(header[n:n + 8], 16) for n in range(0, 104, 8)]
+        except ValueError:
+            fail("initramfs: CPIO header fields invalid")
+        mode, length, major, minor, name_length = fields[1], fields[6], fields[9], fields[10], fields[11]
+        if not (1 <= name_length <= 4096) or length > 32 * 1024 * 1024:
+            fail("initramfs: CPIO entry oversized")
+        cursor += 110
+        if cursor + name_length > len(data):
+            fail("initramfs: CPIO truncated filename")
+        name_raw = data[cursor:cursor + name_length]
+        if name_raw[-1] != 0 or b"\0" in name_raw[:-1]:
+            fail("initramfs: CPIO invalid filename")
+        try:
+            name = name_raw[:-1].decode("utf-8")
+        except UnicodeDecodeError:
+            fail("initramfs: CPIO undecodable filename")
+        cursor = (cursor + name_length + 3) & ~3
+        if cursor + length > len(data):
+            fail("initramfs: CPIO truncated file")
+        payload = data[cursor:cursor + length]
+        cursor = (cursor + length + 3) & ~3
+        if name == "TRAILER!!!":
+            if length or mode:
+                fail("initramfs: malformed CPIO trailer")
+            trailer = True
+            break
+        relative = name.removeprefix("./")
+        if not relative or relative.startswith("/") or ".." in pathlib.PurePosixPath(relative).parts:
+            fail("initramfs: CPIO unsafe filename")
+        if relative in entries:
+            fail("initramfs: duplicate entry")
+        entries[relative] = (mode, major, minor, payload)
+        if len(entries) > 4096:
+            fail("initramfs: excessive entries")
+    if not trailer or any(data[cursor:]):
+        fail("initramfs: missing CPIO trailer or unexpected data")
+    return entries
+
+
 def validate_initramfs(data):
+    import io
+    import stat
     try:
-        raw = gzip.decompress(data)
+        with gzip.GzipFile(fileobj=io.BytesIO(data)) as stream:
+            raw = stream.read(32 * 1024 * 1024 + 1)
     except (OSError, EOFError) as exc:
         fail(f"initramfs gzip invalido: {exc}")
-    if not raw.startswith((b"070701", b"070702")):
-        fail("initramfs: esperado CPIO newc")
     if len(raw) > 32 * 1024 * 1024:
         fail("initramfs: excede 32 MiB descompactado")
+    if not raw.startswith((b"070701", b"070702")):
+        fail("initramfs: esperado CPIO newc")
+    entries = parse_initramfs_newc(raw)
+    for name in ("init", "bin/busybox"):
+        entry = entries.get(name)
+        if not entry or not stat.S_ISREG(entry[0]) or not entry[0] & 0o111:
+            fail(f"initramfs: {name} missing executable file")
+    shell = entries.get("bin/sh")
+    if not shell or not stat.S_ISLNK(shell[0]) or shell[3] != b"busybox":
+        fail("initramfs: /bin/sh must point to busybox")
+    for name, major, minor in (("dev/console", 5, 1), ("dev/null", 1, 3)):
+        entry = entries.get(name)
+        if not entry or not stat.S_ISCHR(entry[0]) or entry[1:3] != (major, minor):
+            fail(f"initramfs: {name} missing or wrong character device")
+    return entries
 
 
 def validate_kexec_arm32_static(data):

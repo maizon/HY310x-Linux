@@ -131,7 +131,9 @@ for app in sh mount umount mkdir uname cat sleep echo ls dmesg sync readlink hea
 done
 cp "$ROOT/initramfs/init" "$CPIO_ROOT/init"
 chmod 0755 "$CPIO_ROOT/init" "$CPIO_ROOT/bin/busybox"
-(cd "$CPIO_ROOT" && find . -print0 | cpio --quiet --null -o -H newc --owner=0:0) | gzip -9 > "$OUT/initramfs.cpio.gz"
+# Linux can open /dev/console before /init; mknod is not available on unprivileged CI.
+# The deterministic newc generator embeds virtual char devices 5:1 and 1:3.
+python3 "$ROOT/tools/make_initramfs.py" "$CPIO_ROOT" "$OUT/initramfs.cpio.gz"
 
 echo "[5/6] kexec-tools estatico ARM32"
 KEXEC_TAR="$SOURCES/kexec-tools-$KEXEC_VERSION.tar.xz"

@@ -9,6 +9,7 @@ on:
       - 'initramfs/**'
       # Only changes affecting the binary package should trigger the
       # expensive ~30-minute cross-build. Python tests run in fast CI.
+      - 'tools/make_initramfs.py'
       - 'tools/validate_kit.py'
       - 'tools/smoke_arm32_userspace.sh'
       - 'tools/read_only_preflight.sh'
