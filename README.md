@@ -44,6 +44,7 @@ Não há Android nem vídeo depois de um Kexec bem-sucedido: o novo kernel toma 
 - `initramfs/init`: initramfs mínimo com tentativa de relatório **somente no pendrive USB** (FAT32/exFAT); não monta eMMC.
 - `scripts/build_kit.sh`: tentativa reproduzível de compilação cruzada via ferramentas abertas; não realiza boot.
 - `.github/workflows/ci.yml`: testes estáticos sem hardware.
+- `.github/workflows/build.yml`: compila, verifica hashes/formatos, executa BusyBox e `kexec --help` sob QEMU **user-mode**, publica kit experimental se todos passarem e publica diagnóstico em caso de falha. Erros de rede na instalação de dependências recebem tentativas automáticas; erros de código continuam exigindo correção e novo commit.
 - `.github/workflows/build.yml`: compilação experimental sob acionamento manual.
 
 O alvo inicial é **ARM32**, não ARM64. O port [cstenger/allwinner-h713-linux](https://github.com/cstenger/allwinner-h713-linux) demonstrou Linux ARM32 via U-Boot original no **HY310**, **não via Kexec** no HY310X. O port [well0nez/allwinner-h713-linux](https://github.com/well0nez/allwinner-h713-linux) usa outra cadeia de boot para ARM64; não transplante seu flash/DTB para este aparelho.

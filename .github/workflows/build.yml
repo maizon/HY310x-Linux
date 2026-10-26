@@ -1,12 +1,21 @@
 name: Build experimental ARM32 (NO-GO)
+
 on:
   push:
     branches: [main]
     paths:
-      - 'scripts/build_kit.sh'
       - '.github/workflows/build.yml'
+      - 'scripts/**'
       - 'initramfs/**'
+      - 'tools/**'
+      - 'config/**'
+      - 'tests/**'
   workflow_dispatch:
+
+# If a fix is pushed, the obsolete compilation must not waste runner resources.
+concurrency:
+  group: hy310x-arm32-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -17,19 +26,66 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
-      - name: Dependencias de cross-compilacao
+      - name: Cross-toolchain and emulator (retry transient apt failures)
+        shell: bash
         run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential gcc-arm-linux-gnueabi binutils-arm-linux-gnueabi \
-            bc bison flex libssl-dev libelf-dev cpio xz-utils bzip2 file curl git python3
-      - name: Compilar kernel e BusyBox e kexec-tools
-        run: bash scripts/build_kit.sh
-      - name: Conferir formatos (nao e validacao de boot)
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if sudo apt-get update &&
+               sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
+                 build-essential gcc-arm-linux-gnueabi binutils-arm-linux-gnueabi \
+                 bc bison flex libssl-dev libelf-dev cpio xz-utils bzip2 \
+                 file curl git python3 qemu-user-static; then
+              exit 0
+            fi
+            echo "::warning::APT failed (attempt $attempt/3)"
+            sleep $((attempt * 15))
+          done
+          echo "::error::APT repeatedly failed"
+          exit 1
+      - name: Compile kernel, BusyBox and kexec-tools (record diagnostics)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .build
+          bash scripts/build_kit.sh 2>&1 | tee .build/build.log
+      - name: Validate complete kit (format and manifest only)
         run: python3 tools/validate_kit.py .build/out
-      - name: Publicar kit experimental sem dados OEM
+      - name: QEMU ARM32 userspace smoke test (NOT board emulation)
+        shell: bash
+        run: bash tools/smoke_arm32_userspace.sh .build
+      - name: Upload NO-GO experimental package
         uses: actions/upload-artifact@v4
         with:
           name: HY310X-KEXEC-ARM32-NO-GO
-          path: .build/out/
+          path: |
+            .build/out/
+            tools/read_only_preflight.sh
+            docs/GO-NOGO.md
+            docs/USB-DIAGNOSTICO.md
+          if-no-files-found: error
+          retention-days: 14
+      - name: Export diagnostics on failure (without OEM data)
+        if: failure()
+        shell: bash
+        run: |
+          mkdir -p .build
+          {
+            echo "HY310X ARM32 build diagnostic (NO-GO)"
+            echo "Commit: ${GITHUB_SHA}"
+            echo "See GitHub Actions job logs for full compiler output."
+            if test -f .build/build.log; then
+              echo "Last 250 build log lines:"
+              tail -n 250 .build/build.log
+            else
+              echo "Build never reached script or no log was produced."
+            fi
+          } > .build/DIAGNOSTICS.txt
+      - name: Upload diagnostic bundle when something fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HY310X-BUILD-FAILURE-DIAGNOSTICS
+          path: .build/DIAGNOSTICS.txt
           if-no-files-found: error
           retention-days: 14
