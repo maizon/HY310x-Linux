@@ -48,6 +48,21 @@ if [ ! -f "$KERNEL/.maizon-patched" ]; then
     done < "$SOURCES/cstenger/patches/series"
     touch "$KERNEL/.maizon-patched"
 fi
+# Upstream patch 0016 contains an earlier H713 DT binding with missing HDMI
+# clock/reset constants. The exact pinned cstenger DTS uses its newer binding.
+# Copy BOTH matching headers from the same pinned upstream revision BEFORE
+# preprocessing DTS or compiling the kernel, to avoid undefined CLK_BUS_HDMI.
+for family in clock reset; do
+    header="sun50i-h713-ccu.h"
+    source="$SOURCES/cstenger/dt-bindings/$family/$header"
+    target="$KERNEL/include/dt-bindings/$family/$header"
+    test -s "$source" || { echo "ERRO: binding H713 ausente: $source" >&2; exit 1; }
+    cp "$source" "$target"
+done
+grep -Eq '^#define[[:space:]]+CLK_BUS_HDMI[[:space:]]+' "$KERNEL/include/dt-bindings/clock/sun50i-h713-ccu.h" ||
+    { echo "ERRO: CLK_BUS_HDMI ausente no binding H713" >&2; exit 1; }
+grep -Eq '^#define[[:space:]]+RST_BUS_HDMI_SUB[[:space:]]+' "$KERNEL/include/dt-bindings/reset/sun50i-h713-ccu.h" ||
+    { echo "ERRO: RST_BUS_HDMI_SUB ausente no binding H713" >&2; exit 1; }
 cp "$SOURCES/cstenger/config/hy310_defconfig" "$KERNEL/arch/arm/configs/maizon_hy310x_lab_defconfig"
 make -s -C "$KERNEL" ARCH=arm CROSS_COMPILE="$CC_PREFIX" maizon_hy310x_lab_defconfig
 # Disable board-specific fan manager and focus motor from UNVERIFIED reference DTS.

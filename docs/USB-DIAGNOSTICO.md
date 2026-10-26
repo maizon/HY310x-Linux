@@ -41,3 +41,7 @@ O arquivo conterá `/init REACHED`, kernel, argumentos de boot, memória, núcle
 ## O que podemos testar agora
 
 Compilação em CI, checagem `sha256sum` dos artefatos, configuração do kernel, integridade do arquivo `initramfs.cpio.gz`, sintaxe `sh -n initramfs/init` e testes estáticos. Isso **não** valida um dispositivo real nem autoriza o handoff.
+
+## Histórico de compilação
+
+O run de 26/10/2026 [40333707350](https://github.com/maizon/HY310x-Linux/actions/runs/40333707350) **falhou depois de produzir `zImage`**: `dtc` reportou erro no DTS perto de `CLK_BUS_HDMI`. A causa rastreada foi a falta de identificadores HDMI no binding criado pelo patch `0016`, apesar de existirem no `dt-bindings/` da mesma revisão fixada do cstenger. Corrigimos o script para sincronizar **ambos os headers (clock/reset)** do commit fixo antes da compilação e do preprocessamento. A correção precisa passar novamente pelo CI; não representa validação do boot.

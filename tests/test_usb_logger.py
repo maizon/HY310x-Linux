@@ -28,6 +28,13 @@ class USBLoggerTests(unittest.TestCase):
                      'CONFIG_USB_OHCI_HCD', 'CONFIG_PHY_SUN4I_USB',
                      'CONFIG_VFAT_FS', 'CONFIG_EXFAT_FS'):
             self.assertIn(flag, script)
+    def test_dtb_uses_matching_pinned_headers(self):
+        script = (ROOT / "scripts/build_kit.sh").read_text()
+        self.assertIn('"$SOURCES/cstenger/dt-bindings/$family/$header"', script)
+        self.assertIn('"$KERNEL/include/dt-bindings/$family/$header"', script)
+        self.assertIn('CLK_BUS_HDMI', script)
+        self.assertIn('RST_BUS_HDMI_SUB', script)
+
     def test_busybox_has_needed_applets(self):
         script = (ROOT / "scripts/build_kit.sh").read_text()
         for app in ('readlink', 'umount', 'head', 'tail', 'reboot'):
