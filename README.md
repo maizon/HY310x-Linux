@@ -45,7 +45,7 @@ Em vez de tentar o kernel 6.16 diretamente no hardware, o caminho preferido pass
 
 Os arquivos originais sao PRIVADOS. Nao enviar `boot-active.img`, FDT ou kernel original ao GitHub publico. O codigo nao produz pacote autorizado a inicializar. Nossa meta e maximizar confiabilidade verificavel, sem anunciar percentual de sucesso fisico nao medido.
 
-**Descoberta concreta do backup da unidade:** o payload de `boot_a.img` e um **candidato ARM32 Image bruto**, com inicio B/BL e sem magic ARM32 zImage em 0x24. Portanto **NÃO** podemos iniciar auto-Kexec com `--type=zImage` apontando para esse arquivo; precisamos investigar suporte a raw Image e memoria/entry do carregador, ou uma forma compativel de encapsulamento, sem mexer em boot_a ou U-Boot. A deteccao atual e heuristica e nao comprova executabilidade via Kexec.
+**Descoberta concreta do backup da unidade:** o payload de `boot_a.img` e um **candidato ARM32 Image bruto**, com inicio B/BL e sem magic ARM32 zImage em 0x24. A analise do codigo-fonte de **kexec-tools v2.0.32** revelou que o loader ARM chamado `zImage` nao verifica a assinatura do kernel no `probe` e pode aceitar bytes de um Image descomprimido. Isso **nao prova** que um Image bruto OEM seja executavel via Kexec: o loader usa deslocamento padrao de 0x8000, escolhe enderecos em RAM e presume condicoes especificas de inicializacao. **Nao executar carregamento nem salto** sem validar esses requisitos no HY310X. Veja `docs/KEXEC-RAW-IMAGE.md`. A deteccao atual e heuristica e nao comprova executabilidade via Kexec.
 
 ## FDT OEM: auditoria local sem dados privados
 

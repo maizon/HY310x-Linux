@@ -56,7 +56,7 @@ A meta de '90%' e de **confiabilidade dos processos de build/verificacao**, nao 
 
 ## Bloqueio encontrado no boot OEM (observação do backup privado da unidade)
 
-O `boot_a.img` original da unidade tem header Android v3 e payload kernel ARM32 cujo inicio se parece com **Image bruto**, nao com `zImage` (nao existe magic de zImage em offset 0x24). O inspecionador agora marca formato `raw-Image-CANDIDATE` e armazena a extracao somente no diretório privado local. Esta observacao **impede** mandar a imagem ao `kexec --type=zImage` sem adaptacao e verificacao real. Nao tentar alterar kernel em eMMC para contornar esse problema. Nao houve boot ou Kexec fisico. FDT original do boot em runtime ainda precisa ser confirmado para `/memory` e reservas.
+O `boot_a.img` original da unidade tem header Android v3 e payload kernel ARM32 cujo inicio se parece com **Image bruto**, nao com `zImage` (nao existe magic de zImage em offset 0x24). O inspecionador agora marca formato `raw-Image-CANDIDATE` e armazena a extracao somente no diretório privado local. Esta observacao impede **presumir compatibilidade** com `--type=zImage`. O codigo do loader ARM de kexec-tools v2.0.32 aceita a sondagem sem verificar magic e pode carregar bytes brutos; porem isso nao prova entrypoint, enderecos fisicos, relocacao ou handoff correto. Veja `docs/KEXEC-RAW-IMAGE.md`. Nao tentar alterar kernel em eMMC para contornar esse problema. Nao houve boot ou Kexec fisico. FDT original do boot em runtime ainda precisa ser confirmado para `/memory` e reservas.
 
 ## Auditoria privada do FDT (26/10/2026)
 

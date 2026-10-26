@@ -93,8 +93,10 @@ def prepare(boot: Path, fdt: Path, output: Path):
         "boot": header,
         "kernel_format": kernel_format,
         "warning": (
-            "Raw ARM Image is NOT an ARM zImage; do not pass it as --type=zImage "
-            "to kexec-tools. No compatible load/handoff method has been proven."
+            "Raw ARM Image is NOT an ARM zImage. kexec-tools v2.0.32 ARM "
+            "probe may accept uncompressed bytes without checking magic, "
+            "but entry placement, linkage, memory safety and handoff are "
+            "UNVERIFIED. Do not load or execute on HY310X."
         ),
         "fdt": summary_fdt,
         "fdt_audit": fdt_audit,

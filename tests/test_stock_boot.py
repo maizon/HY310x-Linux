@@ -53,6 +53,7 @@ class PrivateAutoKexecTests(unittest.TestCase):
             self.assertTrue((base / "private/stock-Image").exists())
             self.assertFalse((base / "private/stock-zImage").exists())
             self.assertIn("NOT an ARM zImage", report["warning"])
+            self.assertIn("may accept", report["warning"])
 
     def test_non_arm32_payload_rejected(self):
         with self.assertRaisesRegex(ValueError, "desconhecido"):
