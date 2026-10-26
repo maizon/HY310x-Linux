@@ -55,8 +55,18 @@ make -s -C "$KERNEL" ARCH=arm CROSS_COMPILE="$CC_PREFIX" maizon_hy310x_lab_defco
 "$KERNEL/scripts/config" --file "$KERNEL/.config" \
     -e BLK_DEV_INITRD -e RD_GZIP -e DEVTMPFS -e DEVTMPFS_MOUNT \
     -e SERIAL_8250 -e SERIAL_8250_CONSOLE \
-    -d HY310_BOARD_MGR -d HY310_KEYSTONE_MOTOR
+    -e USB -e USB_EHCI_HCD -e USB_EHCI_HCD_PLATFORM \
+    -e USB_OHCI_HCD -e USB_OHCI_HCD_PLATFORM -e USB_STORAGE \
+    -e PHY_SUN4I_USB -e SCSI -e BLK_DEV_SD \
+    -e FAT_FS -e VFAT_FS -e EXFAT_FS \
+    -e NLS_CODEPAGE_437 -e NLS_ISO8859_1 \
+    -d MMC -d HY310_BOARD_MGR -d HY310_KEYSTONE_MOTOR
 make -s -C "$KERNEL" ARCH=arm CROSS_COMPILE="$CC_PREFIX" olddefconfig
+# USB read/write reporting must be built into the kernel, not modules: initramfs loads no .ko.
+for setting in CONFIG_USB_STORAGE CONFIG_USB_EHCI_HCD CONFIG_USB_OHCI_HCD CONFIG_PHY_SUN4I_USB CONFIG_SCSI CONFIG_BLK_DEV_SD CONFIG_VFAT_FS CONFIG_EXFAT_FS; do
+    grep -qx "$setting=y" "$KERNEL/.config" || { echo "ERRO: $setting precisa estar built-in" >&2; exit 1; }
+done
+grep -qx '# CONFIG_MMC is not set' "$KERNEL/.config" || { echo "ERRO: eMMC nao deve ser exposta no primeiro teste" >&2; exit 1; }
 make -C "$KERNEL" ARCH=arm CROSS_COMPILE="$CC_PREFIX" -j"$JOBS" zImage scripts
 cp "$KERNEL/arch/arm/boot/zImage" "$OUT/zImage"
 
@@ -79,7 +89,7 @@ cpp -nostdinc -I "$KERNEL/include" -I "$KERNEL/scripts/dtc/include-prefixes" \
     "$KERNEL/scripts/dtc/dtc" -I dts -O dtb -W no-unit_address_vs_reg \
        -o "$OUT/hy310x-candidate.dtb" -
 
-echo "[4/6] BusyBox estatico ARM32 e initramfs"
+echo "[4/6] BusyBox estatico ARM32 e initramfs de diagnostico USB FAT32/exFAT"
 BUSY_TAR="$SOURCES/busybox-$BUSYBOX_VERSION.tar.bz2"
 fetch "https://busybox.net/downloads/busybox-$BUSYBOX_VERSION.tar.bz2" "$BUSY_TAR"
 if [ ! -d "$SOURCES/busybox-$BUSYBOX_VERSION" ]; then
@@ -96,7 +106,7 @@ CPIO_ROOT="$WORKDIR/initramfs-root"
 rm -rf "$CPIO_ROOT"
 mkdir -p "$CPIO_ROOT/bin" "$CPIO_ROOT/dev" "$CPIO_ROOT/proc" "$CPIO_ROOT/sys" "$CPIO_ROOT/run" "$CPIO_ROOT/tmp"
 cp "$BUSY/busybox" "$CPIO_ROOT/bin/busybox"
-for app in sh mount mkdir uname cat sleep echo ls dmesg sync; do
+for app in sh mount umount mkdir uname cat sleep echo ls dmesg sync readlink head tail reboot; do
     ln -s busybox "$CPIO_ROOT/bin/$app"
 done
 cp "$ROOT/initramfs/init" "$CPIO_ROOT/init"

@@ -11,7 +11,7 @@ O objetivo do laboratório é gerar binários verificáveis sem alterar a eMMC. 
 | A. Inventário | Processador, kernel, kexec e memória reservada lidos | OK (proprietário) |
 | B. Build | Kernel ARM32, BusyBox initramfs, utilitário ARMv7 estático | Pendente de CI verde |
 | C. Auditoria DTB | DTB específico do HY310X com pinos, fan, clocks e reservas revisados | **Não** |
-| D. Log UART | Caminho físico independente de Android e vídeo | **Não** |
+| D. Observabilidade sem UART | Logger USB FAT32/exFAT de /init (não registra falhas anteriores) e retorno testável | **Parcial: código não validado em hardware** |
 | E. Recuperação | Mecanismo prático provado de recuperação quando Android não responde | **Não** |
 | F. Ensaio carga | Teste controlado de `kexec -l` em dispositivo, sem salto | **Não** |
 | G. Handoff | Somente após A-F, ensaio `kexec -e` supervisionado | **Não** |
@@ -28,10 +28,10 @@ Um arquivo que passou `validate_kit.py` só passou checagem de **formato**, NÃO
 
 ## Observabilidade mínima do shell
 
-O initramfs usa `/dev/console` e `ttyS0`, caso haja porta UART habilitada. Não dispõe de compositor, ADB, Wi-Fi, nem grava status na eMMC. Com apenas projeção e sem UART, o kernel pode iniciar **sem qualquer indicação visível**. Uma tela preta não é prova de sucesso ou falha.
+O initramfs usa `/dev/console` e `ttyS0`, caso haja porta UART habilitada. **Sem UART**, procura exclusivamente discos **USB** em `/sys/block/sd*`, verifica o arquivo `MAIZON.OK` no FAT32/exFAT e, se conseguir, escreve `MAIZON/KEXEC.LOG` no próprio pendrive. A opção `MAIZON.RBT` autoriza tentativa de reinicialização **somente após salvar e desmontar o USB**; se falhar, é necessário desligar fisicamente. O novo kernel **não possui driver MMC/eMMC no kit mínimo**, e o initramfs não monta partições internas. Sem inicialização do USB, não há relatório. Não existe log do que ocorrer antes de chegar ao `/init`, e tela preta não prova sucesso ou falha. Consulte `docs/USB-DIAGNOSTICO.md`.
 
 ## Como obter evidência no futuro
 
-Inspecionar e comparar o Device Tree original `/sys/firmware/fdt` *localmente* com um DTS proposto, sem publicar segredos. Validar comando kernel, drivers de fan e USB e a recuperação física antes de habilitar o handoff.
+Inspecionar e comparar o Device Tree original `/sys/firmware/fdt` *localmente* com um DTS proposto, sem publicar segredos. Validar comando kernel, drivers de fan e USB, disponibilidade real do pendrive durante o handoff e recuperação física antes de habilitar o boot. USB log não substitui UART para falhas antes do /init.
 
 Não há percentual de sucesso medido no HY310X.

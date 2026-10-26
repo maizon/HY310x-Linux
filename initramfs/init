@@ -1,6 +1,6 @@
 #!/bin/sh
-# Minimal experimental first userspace. Runs ONLY if a separately loaded kernel reaches /init.
-# Do not mount or write eMMC. This script does not trigger kexec, flash or automatic reboot.
+# Maizon HY310X: experimental initramfs only. Does NOT launch kexec or write eMMC.
+# Without UART the ONLY success signal is an opt-in USB FAT32/exFAT log.
 export PATH=/bin:/sbin:/usr/bin:/usr/sbin
 umask 077
 mkdir -p /dev /proc /sys /run /tmp
@@ -8,15 +8,97 @@ mount -t devtmpfs devtmpfs /dev 2>/dev/null || :
 mount -t proc proc /proc 2>/dev/null || :
 mount -t sysfs sysfs /sys 2>/dev/null || :
 mount -t tmpfs tmpfs /run 2>/dev/null || :
-printf '\n=== MAIZON HY310X ARM32 MINIMAL INITRAMFS ===\n'
-printf 'Kernel: '
-uname -a
-printf 'CPUs online: '
-cat /sys/devices/system/cpu/online 2>/dev/null || :
-printf '\nSem eMMC, sem rede, sem grafico. Shell em /dev/console.\n'
-printf '### MAIZON HY310X: /init alcancado ###\n' > /dev/kmsg 2>/dev/null || :
+MNT=/run/maizon-usb
+mkdir -p "$MNT"
+
+printf '\nMAIZON HY310X: /init ARM32 alcancado; procurando USB (FAT32/exFAT)\n'
+printf 'MAIZON HY310X init reached\n' > /dev/kmsg 2>/dev/null || :
+
+# Never trust the sdX name alone: require its sysfs ancestry to contain a USB bus.
+# Do not look for mmcblk*, nvme*, mtd*, super, boot_a or any other internal device.
+try_usb_partition() {
+    device="$1"
+    filesystem="$2"
+    if ! mount -t "$filesystem" -o ro,nosuid,nodev,noexec "$device" "$MNT" 2>/dev/null; then
+        return 1
+    fi
+    if [ ! -f "$MNT/MAIZON.OK" ]; then
+        umount "$MNT" 2>/dev/null || :
+        return 1
+    fi
+    auto_return=0
+    [ -f "$MNT/MAIZON.RBT" ] && auto_return=1
+    umount "$MNT" 2>/dev/null || return 1
+    if ! mount -t "$filesystem" -o rw,sync,nosuid,nodev,noexec "$device" "$MNT" 2>/dev/null; then
+        echo "MAIZON: USB marker found but read/write mount failed"
+        return 1
+    fi
+    mkdir -p "$MNT/MAIZON" 2>/dev/null || :
+    log="$MNT/MAIZON/KEXEC.LOG"
+    {
+        echo "=== MAIZON HY310X ARM32 KEXEC /init REACHED ==="
+        echo "This is NOT proof of working graphics or full device compatibility."
+        echo "USB block: $device"
+        echo "USB filesystem: $filesystem"
+        echo "Kernel:"
+        uname -a
+        echo "Boot arguments:"
+        cat /proc/cmdline 2>/dev/null || :
+        echo "Uptime:"
+        cat /proc/uptime 2>/dev/null || :
+        echo "CPU online:"
+        cat /sys/devices/system/cpu/online 2>/dev/null || :
+        echo "Memory:"
+        head -n 12 /proc/meminfo 2>/dev/null || :
+        echo "USB and other detected block devices:"
+        ls /sys/block 2>/dev/null || :
+        echo "Last 200 kernel messages:"
+        dmesg 2>/dev/null | tail -n 200 || :
+        echo "=== MAIZON REPORT COMPLETE ==="
+    } > "$log" 2>&1
+    result="$?"
+    sync
+    if ! umount "$MNT" 2>/dev/null; then
+        echo "MAIZON: USB unmount failed; no automatic reboot"
+        return 1
+    fi
+    [ "$result" -eq 0 ] || return 1
+    echo "MAIZON: /init reached, USB diagnostic saved in MAIZON/KEXEC.LOG"
+    if [ "$auto_return" -eq 1 ]; then
+        echo "MAIZON: optional USB MAIZON.RBT marker permits a reboot attempt in 8 seconds"
+        sleep 8
+        reboot -f
+        echo "MAIZON: reboot syscall returned; physical power-cycle might be necessary"
+    fi
+    # No remote shell is possible without UART/network; do not touch internal storage.
+    while :; do sleep 60; done
+}
+
+tries=0
+while [ "$tries" -lt 90 ]; do
+    for disk_dir in /sys/block/sd*; do
+        [ -e "$disk_dir/device" ] || continue
+        disk="${disk_dir##*/}"
+        ancestry="$(readlink -f "$disk_dir/device" 2>/dev/null)" || continue
+        case "$ancestry" in
+            */usb[0-9]*/*) ;;
+            *) continue ;;
+        esac
+        for partition_dir in "$disk_dir"/"$disk"[0-9]*; do
+            [ -r "$partition_dir/partition" ] || continue
+            partition="${partition_dir##*/}"
+            [ -b "/dev/$partition" ] || continue
+            try_usb_partition "/dev/$partition" vfat
+            try_usb_partition "/dev/$partition" exfat
+        done
+    done
+    tries=$((tries + 1))
+    sleep 1
+done
+
+echo "MAIZON: USB not detected, unsupported filesystem or MAIZON.OK absent."
+echo "No internal storage mounted. Manual power-cycle may be required."
 if [ -c /dev/console ]; then
     exec /bin/sh </dev/console >/dev/console 2>&1
 fi
-echo 'ERRO: /dev/console indisponivel; nao ha shell interativo.'
 while :; do sleep 60; done

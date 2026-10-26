@@ -33,7 +33,7 @@ Android 11 ARM32 original (eMMC; NÃO modificar)
             └─ /init -> serial console ttyS0 / shell mínimo
 ```
 
-Não há Android nem vídeo depois de um Kexec bem-sucedido: o novo kernel toma controle, e ADB perde conexão. A consola serial UART é o método confiável de obter logs; a tela pode ficar preta. **Sem UART, não iniciar o teste.**
+Não há Android nem vídeo depois de um Kexec bem-sucedido: o novo kernel toma controle, e ADB perde conexão. O proprietário **não tem UART**: o initramfs agora inclui **diagnóstico opt-in por pendrive FAT32/exFAT** em `MAIZON/KEXEC.LOG`, **somente se /init e o USB funcionarem**. Não há log para falhas antes de /init. **A existência do logger NÃO autoriza o teste de boot**; veja [docs/USB-DIAGNOSTICO.md](docs/USB-DIAGNOSTICO.md) e [docs/GO-NOGO.md](docs/GO-NOGO.md).
 
 ## Conteúdo do projeto
 
@@ -41,7 +41,7 @@ Não há Android nem vídeo depois de um Kexec bem-sucedido: o novo kernel toma 
 - `docs/GO-NOGO.md`: regras para impedir execução prematura.
 - `tools/read_only_preflight.sh`: pesquisa somente leitura no Android/root.
 - `tools/validate_kit.py`: checa estrutura zImage, DTB, initramfs, ELF ARM32, hashes.
-- `initramfs/init`: initramfs mínimo, sem gravação de eMMC, voltado à UART.
+- `initramfs/init`: initramfs mínimo com tentativa de relatório **somente no pendrive USB** (FAT32/exFAT); não monta eMMC.
 - `scripts/build_kit.sh`: tentativa reproduzível de compilação cruzada via ferramentas abertas; não realiza boot.
 - `.github/workflows/ci.yml`: testes estáticos sem hardware.
 - `.github/workflows/build.yml`: compilação experimental sob acionamento manual.
