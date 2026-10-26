@@ -32,10 +32,15 @@ def parse_boot_header(header, image_size):
             "kernel_offset": PAGE, "header_size": header_size}
 
 
-def require_arm32_zimage(data):
-    if len(data) < 0x28 or struct.unpack_from("<I", data, 0x24)[0] != ZIMAGE_MAGIC:
-        raise ValueError("Payload original nao identificado como ARM32 zImage. Pare; formato precisa de auditoria.")
-    return data
+def classify_arm32_kernel(data):
+    """Classify format, NOT kexec-loadability. ARM Image candidate is not a zImage."""
+    if len(data) >= 0x28 and struct.unpack_from("<I", data, 0x24)[0] == ZIMAGE_MAGIC:
+        return "zImage", "stock-zImage"
+    # A raw ARM32 Image normally enters with an ARM-mode unconditional
+    # B/BL instruction; this is only a heuristic, not a provenance proof.
+    if len(data) >= PAGE and (struct.unpack_from("<I", data, 0)[0] & 0xFE000000) == 0xEA000000:
+        return "raw-Image-CANDIDATE", "stock-Image"
+    raise ValueError("Payload OEM desconhecido; nem zImage nem candidato Image ARM32. Investigue offline.")
 
 
 def parse_fdt_header(data):
@@ -63,7 +68,8 @@ def prepare(boot: Path, fdt: Path, output: Path):
     with boot.open("rb") as inp:
         header = parse_boot_header(inp.read(PAGE), boot.stat().st_size)
         inp.seek(header["kernel_offset"])
-        kernel = require_arm32_zimage(inp.read(header["kernel_size"]))
+        kernel = inp.read(header["kernel_size"])
+        kernel_format, kernel_file = classify_arm32_kernel(kernel)
     raw_fdt = fdt.read_bytes()
     summary_fdt = parse_fdt_header(raw_fdt)
     # Avoid accidentally committing proprietary boot/kernel and raw FDT.
@@ -74,15 +80,20 @@ def prepare(boot: Path, fdt: Path, output: Path):
     result = {
         "status": "NO-GO: formato verificado; sem validacao do boot por kexec",
         "boot": header,
+        "kernel_format": kernel_format,
+        "warning": (
+            "Raw ARM Image is NOT an ARM zImage; do not pass it as --type=zImage "
+            "to kexec-tools. No compatible load/handoff method has been proven."
+        ),
         "fdt": summary_fdt,
         "sha256": {
-            "stock-zImage": hashlib.sha256(kernel).hexdigest(),
+            kernel_file: hashlib.sha256(kernel).hexdigest(),
             "stock-original.fdt": hashlib.sha256(raw_fdt).hexdigest(),
         },
         "note": "Arquivos proprietarios locais; nunca publicar no GitHub.",
     }
     for name, raw in (
-        ("stock-zImage", kernel),
+        (kernel_file, kernel),
         ("stock-original.fdt", raw_fdt),
         ("LOCAL-REPORT.json", (json.dumps(result, indent=2) + "\n").encode("utf-8")),
     ):

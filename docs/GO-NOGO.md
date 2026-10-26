@@ -53,3 +53,7 @@ O primeiro ensaio de hardware planejado e o auto-Kexec do **kernel OEM ARM32 5.4
 A opcao `tools/capture_stock_android.sh` le somente boot do slot ativo e `/sys/firmware/fdt`, gravando a copia no USB removivel; `tools/inspect_android_boot.py` rejeita formatos inesperados. O suporte ao node `/memory`, memoria reservada, estado PSCI, termica, USB e retorno seguro ao Android precisa de evidencia adicional. Sem UART, log USB so ajuda apos o sistema reconhecer o USB e executar `/init`.
 
 A meta de '90%' e de **confiabilidade dos processos de build/verificacao**, nao probabilidade alegada de boot real. Nao prometer sucesso sem prova fisica, e nao executar Kexec automaticamente.
+
+## Bloqueio encontrado no boot OEM (observação do backup privado da unidade)
+
+O `boot_a.img` original da unidade tem header Android v3 e payload kernel ARM32 cujo inicio se parece com **Image bruto**, nao com `zImage` (nao existe magic de zImage em offset 0x24). O inspecionador agora marca formato `raw-Image-CANDIDATE` e armazena a extracao somente no diretório privado local. Esta observacao **impede** mandar a imagem ao `kexec --type=zImage` sem adaptacao e verificacao real. Nao tentar alterar kernel em eMMC para contornar esse problema. Nao houve boot ou Kexec fisico. FDT original do boot em runtime ainda precisa ser confirmado para `/memory` e reservas.

@@ -6,7 +6,7 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-from inspect_android_boot import PAGE, ZIMAGE_MAGIC, parse_boot_header, require_arm32_zimage, parse_fdt_header, prepare
+from inspect_android_boot import PAGE, ZIMAGE_MAGIC, parse_boot_header, classify_arm32_kernel, parse_fdt_header, prepare
 
 
 def mock_boot(payload, version=3):
@@ -38,9 +38,25 @@ class PrivateAutoKexecTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "vazia"):
                 prepare(base / "boot.img", base / "original.fdt", base / "private")
 
+    def test_actual_factory_format_raw_arm_image_candidate(self):
+        # Factory HY310X boot_a v3 has an ARM B/BL entry, NOT zImage magic.
+        # This synthetic fixture reproduces that FORMAT only, no OEM data.
+        with tempfile.TemporaryDirectory() as td:
+            base = pathlib.Path(td)
+            kernel = bytearray(4096)
+            struct.pack_into("<I", kernel, 0, 0xEB0430AE)
+            struct.pack_into("<I", kernel, 0x24, 0xE16FF009)
+            (base / "boot.img").write_bytes(mock_boot(kernel))
+            (base / "original.fdt").write_bytes(mock_fdt())
+            report = prepare(base / "boot.img", base / "original.fdt", base / "private")
+            self.assertEqual(report["kernel_format"], "raw-Image-CANDIDATE")
+            self.assertTrue((base / "private/stock-Image").exists())
+            self.assertFalse((base / "private/stock-zImage").exists())
+            self.assertIn("NOT an ARM zImage", report["warning"])
+
     def test_non_arm32_payload_rejected(self):
-        with self.assertRaisesRegex(ValueError, "nao identificado"):
-            require_arm32_zimage(b"x" * 2048)
+        with self.assertRaisesRegex(ValueError, "desconhecido"):
+            classify_arm32_kernel(b"x" * 2048)
 
     def test_android_magic_and_truncated_rejected(self):
         with self.assertRaises(ValueError):
